@@ -1,13 +1,21 @@
-﻿using TicketingSystem.Models;
+﻿using System.Collections.Generic;
 
 namespace TicketingSystem.Models
 {
-    /// <summary>
-    /// Holds all the data required for rendering the dedicated chat room page.
-    /// </summary>
+    public class ChatUserViewModel
+    {
+        public int UserId { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+        public bool IsOnline { get; set; }
+    }
+
     public class ChatRoomViewModel
     {
-        public Ticket TicketDetails { get; set; } = new Ticket();
-        public List<ChatMessage> Messages { get; set; } = new List<ChatMessage>();
+        public int TicketId { get; set; }
+        public string TicketTitle { get; set; } = string.Empty;
+        public List<ChatMessage> InitialMessages { get; set; } = new();
+        public int CurrentUserId { get; set; }
+        public List<ChatUserViewModel> AllUsers { get; set; } = new();
     }
 }

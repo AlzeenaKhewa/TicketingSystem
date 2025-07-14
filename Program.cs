@@ -1,22 +1,21 @@
-// TicketingSystem/Program.cs
 using TicketingSystem.Data;
+using TicketingSystem.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// --- Add services to the container ---
-
-// 1. Add MVC services
+// Add services to the container.
 builder.Services.AddControllersWithViews();
 
-// 2. Register our custom repository for Dependency Injection
-// This tells the app: "When a controller asks for ITicketRepository, give it a TicketRepository"
+// Register your repositories for Dependency Injection
 builder.Services.AddScoped<ITicketRepository, TicketRepository>();
+builder.Services.AddScoped<IChatRepository, ChatRepository>();
 
-// === ADD SIGNALR SERVICES ===
+// Add SignalR
 builder.Services.AddSignalR();
+
 var app = builder.Build();
 
-// --- Configure the HTTP request pipeline ---
+// Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
@@ -30,12 +29,11 @@ app.UseRouting();
 
 app.UseAuthorization();
 
-// 3. Set the default route to our new Tickets page
+// Map your controllers and the SignalR hub
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Tickets}/{action=Index}/{id?}");
 
-// === MAP THE SIGNALR HUB ENDPOINT ===
-app.MapHub<TicketingSystem.Hubs.ChatHub>("/chatHub");
+app.MapHub<ChatHub>("/chathub");
 
 app.Run();

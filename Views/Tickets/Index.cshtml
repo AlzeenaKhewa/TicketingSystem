@@ -1,5 +1,4 @@
-﻿<!-- THIS IS THE CORRECT, FINAL VERSION WITH DATATABLES -->
-@model TicketingSystem.Models.TicketPageViewModel
+﻿@model TicketingSystem.Models.TicketPageViewModel
 @{
     ViewData["Title"] = "Customer Support Hub";
 }
@@ -39,11 +38,12 @@
         color: white;
     }
 
-    ..dataTables_wrapper .dt-buttons .btn {
+    .dataTables_wrapper .dt-buttons .btn {
         margin-right: 5px;
-        border-radius: 20px; /* Pill-shaped buttons */
+        border-radius: 20px;
         font-size: 0.85rem;
         padding: .3rem .8rem;
+    }
 
     .dataTables_filter input {
         border-radius: 20px !important;
@@ -68,6 +68,11 @@
     table.dataTable a.view-details-btn {
         font-size: 0.8rem;
         padding: 0.2rem 0.6rem;
+    }
+
+    .dt-buttons.btn-group {
+        float: left;
+        margin-top: 1rem;
     }
 </style>
 
@@ -104,7 +109,9 @@
                             @foreach (var ticket in Model.ExistingTickets)
                             {
                                 <tr>
-                                    <td class="text-center" title="@ticket.Status"><i class="@GetStatusIconClass(ticket.Status) fa-lg"></i></td>
+                                    <td class="text-center">
+                                        <span class="@GetStatusBadgeClass(ticket.Status)">@ticket.Status</span>
+                                    </td>
                                     <td>TCK-@ticket.Id.ToString("D6")</td>
                                     <td>@ticket.CustomerName</td>
                                     <td>@ticket.Title</td>
@@ -119,6 +126,10 @@
                                                 data-account-number="@(ticket.AccountNumber ?? "N/A")">
                                             View
                                         </button>
+                                        <a asp-controller="Chat" asp-action="Room" asp-route-id="@ticket.Id"
+                                           class="btn btn-success btn-sm ms-1">
+                                            <i class="fas fa-comments"></i> Chat
+                                        </a>
                                     </td>
                                 </tr>
                             }
@@ -135,29 +146,14 @@
                     <form id="support-form" asp-controller="Tickets" asp-action="Create" method="post" novalidate>
                         @Html.AntiForgeryToken()
                         <div class="mb-3">
-                            <label asp-for="NewTicket.Topic" class="form-label fw-bold"></label>
-                            <select asp-for="NewTicket.Topic" class="form-select" required>
-                                <option value="" disabled selected>Select a topic...</option>
-                                <option value="Transaction Inquiry">Transaction Inquiry</option>
-                                <option value="Card Services">Card Services</option>
-                                <option value="Account Security">Account Security</option>
-                                <option value="Payments & Transfers">Payments & Transfers</option>
-                                <option value="Technical Issue">Technical Issue</option>
-                                <option value="General Feedback">General Feedback</option>
-                            </select>
-                            <span asp-validation-for="NewTicket.Topic" class="text-danger"></span>
-                        </div>
-                        <div class="mb-3">
                             <label asp-for="NewTicket.CustomerName" class="form-label fw-bold"></label>
                             <input asp-for="NewTicket.CustomerName" class="form-control" placeholder="e.g., John Doe" />
                             <span asp-validation-for="NewTicket.CustomerName" class="text-danger"></span>
                         </div>
-                        <!-- ============================== -->
-
                         <div class="mb-3">
                             <label asp-for="NewTicket.Topic" class="form-label fw-bold"></label>
-                            <select asp-for="NewTicket.Topic" class="form-select" required>
-                                <!-- ... options ... -->
+                            <select asp-for="NewTicket.Topic" asp-items="@Model.TopicOptions" class="form-select">
+                                <option value="">-- Please select a topic --</option>
                             </select>
                             <span asp-validation-for="NewTicket.Topic" class="text-danger"></span>
                         </div>
@@ -227,15 +223,27 @@
 </div>
 
 @functions {
-    string GetStatusBadgeClass(string status) => status switch { "Open" => "bg-success", "In Progress" => "bg-info text-dark", "Closed" => "bg-secondary", _ => "bg-light text-dark" };
-    string GetStatusIconClass(string status) => status switch { "Open" => "fas fa-folder-open text-success", "In Progress" => "fas fa-spinner fa-spin text-info", "Closed" => "fas fa-check-circle text-muted", _ => "fas fa-question-circle text-muted" };
-    string GetPriorityBadgeClass(string priority) => priority switch { "Urgent" => "bg-danger", "High" => "bg-warning text-dark", "Normal" => "bg-primary-subtle text-primary-emphasis", _ => "bg-light text-dark" };
+    string GetStatusBadgeClass(string status) => status switch
+    {
+        "Open" => "badge bg-success",
+        "In Progress" => "badge bg-primary",
+        "Pending" => "badge bg-warning text-dark",
+        "Resolved" => "badge bg-secondary",
+        _ => "badge bg-light text-dark"
+    };
+
+    string GetPriorityBadgeClass(string priority) => priority switch
+    {
+        "Urgent" => "badge bg-danger",
+        "High" => "badge bg-warning text-dark",
+        "Normal" => "badge bg-primary",
+        _ => "badge bg-light text-dark"
+    };
 }
 
 @section Scripts {
     <script>
         $(document).ready(function () {
-            // Confirmation modal logic (unchanged)
             $('#confirmSubmitModal').on('show.bs.modal', function () {
                 var topic = $('#NewTicket_Topic option:selected').text();
                 var subject = $('#NewTicket_Title').val();
@@ -244,7 +252,6 @@
             });
             $('#finalSubmitBtn').on('click', function () { $('#support-form').submit(); });
 
-            // View Details modal logic (unchanged)
             $('#detailsModal').on('show.bs.modal', function (event) {
                 var button = $(event.relatedTarget);
                 var customerName = button.data('customer-name');
@@ -266,32 +273,25 @@
                 modal.find('#modalTicketDescription').text(description);
             });
 
-            // --- DATATABLES INITIALIZATION SCRIPT (UPDATED) ---
-            var table = $('#ticketsDataTable').DataTable({
-                "order": [[4, "desc"]], // Default sort by "Date Created"
+            $('#ticketsDataTable').DataTable({
+                "order": [[4, "desc"]],
                 "pageLength": 10,
                 "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "All"]],
                 "columnDefs": [ { "orderable": false, "targets": "no-sort" } ],
-                dom: "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
-                     "<'row'<'col-sm-12'tr>>" +
-                     "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>" +
-                     "<'row'<'col-sm-12 mt-3'B>>",
+                dom:
+                    "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
+                    "<'row'<'col-sm-12'tr>>" +
+                    "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>" +
+                    "<'row'<'col-sm-12'B>>",
                 buttons: [
-                    { extend: 'csv', text: '<i class="fas fa-file-csv"></i> Export CSV', className: 'btn btn-outline-secondary', titleAttr: 'Export to CSV' },
-                    { extend: 'excel', text: '<i class="fas fa-file-excel"></i> Export Excel', className: 'btn btn-outline-success', titleAttr: 'Export to Excel' },
-                    { extend: 'pdf', text: '<i class="fas fa-file-pdf"></i> Export PDF', className: 'btn btn-outline-danger', titleAttr: 'Export to PDF' },
-                    { extend: 'print', text: '<i class="fas fa-print"></i> Print', className: 'btn btn-outline-info', titleAttr: 'Print Table' }
+                    { extend: 'csv', text: '<i class="fas fa-file-csv me-1"></i> Export CSV', className: 'btn btn-outline-secondary', titleAttr: 'Export to CSV' },
+                    { extend: 'excel', text: '<i class="fas fa-file-excel me-1"></i> Export Excel', className: 'btn btn-outline-success', titleAttr: 'Export to Excel' },
+                    { extend: 'pdf', text: '<i class="fas fa-file-pdf me-1"></i> Export PDF', className: 'btn btn-outline-danger', titleAttr: 'Export to PDF' },
+                    { extend: 'print', text: '<i class="fas fa-print me-1"></i> Print', className: 'btn btn-outline-info', titleAttr: 'Print Table' }
                 ],
-
-                // --- NEW: HIDE THE DEFAULT "Search:" LABEL ---
-                language: {
-                    search: ""
-                }
+                language: { search: "" }
             });
-
-            // --- NEW: ADD A MODERN PLACEHOLDER TO THE SEARCH INPUT ---
             $('.dataTables_filter input').attr("placeholder", "Search history...");
-
         });
     </script>
 }
