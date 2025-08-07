@@ -17,6 +17,30 @@ namespace TicketingSystem.Data
             _connectionString = configuration.GetConnectionString("DefaultConnection")!;
         }
 
+        public async Task<IEnumerable<ChatUserViewModel>> GetUsersForTicketAsync(int ticketId)
+        {
+            // --- THIS QUERY IS NOW CORRECT AND PREVENTS DUPLICATES ---
+            // It fetches the customer for the specific ticket, plus all support/admin staff,
+            // and uses an EXISTS subquery to check for online status without creating duplicate rows.
+            const string sql = @"
+                WITH TicketCustomer AS (
+                    SELECT ""CustomerId"" FROM ""Tickets"" WHERE ""Id"" = @TicketId
+                )
+                SELECT 
+                    u.""Id"" AS UserId, 
+                    u.""Name"", 
+                    u.""Role"",
+                    EXISTS (SELECT 1 FROM ""Connections"" c WHERE c.""UserId"" = u.""Id"") AS IsOnline
+                FROM ""Users"" u
+                WHERE u.""Role"" IN ('Support', 'Admin') OR u.""Id"" = (SELECT ""CustomerId"" FROM TicketCustomer)
+                ORDER BY u.""Role"", u.""Name"";";
+
+            using var connection = new NpgsqlConnection(_connectionString);
+            return await connection.QueryAsync<ChatUserViewModel>(sql, new { TicketId = ticketId });
+        }
+
+        // --- ALL OTHER METHODS IN THIS FILE ARE CORRECT AND REMAIN UNCHANGED ---
+
         public async Task<IEnumerable<ChatMessage>> GetConversationAsync(int ticketId, int currentUserId)
         {
             const string sql = @"
@@ -78,20 +102,6 @@ namespace TicketingSystem.Data
             const string sql = @"SELECT ""ConnectionId"" FROM ""Connections"" WHERE ""UserId"" = @UserId;";
             using var connection = new NpgsqlConnection(_connectionString);
             return await connection.QueryAsync<string>(sql, new { UserId = userId });
-        }
-
-        public async Task<IEnumerable<ChatUserViewModel>> GetUsersForTicketAsync(int ticketId)
-        {
-            const string sql = @"
-                SELECT 
-                    u.""Id"" AS UserId, u.""Name"", u.""Role"",
-                    CASE WHEN c.""ConnectionId"" IS NOT NULL THEN TRUE ELSE FALSE END AS IsOnline
-                FROM ""Users"" u
-                LEFT JOIN ( SELECT DISTINCT ""UserId"", ""ConnectionId"" FROM ""Connections"" ) c 
-                    ON u.""Id"" = c.""UserId""
-                ORDER BY u.""Name"";";
-            using var connection = new NpgsqlConnection(_connectionString);
-            return await connection.QueryAsync<ChatUserViewModel>(sql);
         }
     }
 }

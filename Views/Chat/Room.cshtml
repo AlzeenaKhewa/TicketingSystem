@@ -1,119 +1,202 @@
-﻿:root {
-    --chat-bg: #fff;
-    --panel-bg: #f8f9fa;
-    --border-color: #e9ecef;
-    --primary-blue: #007bff;
-    --bubble-sent: linear-gradient(135deg, #007bff, #0056b3);
-    --bubble-received: #f1f0f0;
-    --text-color-light: #fff;
-    --text-color-dark: #333;
-    --text-muted-color: #888;
-    --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+﻿@model TicketingSystem.Models.ChatRoomViewModel
+@{
+    ViewData["Title"] = $"Chat for Ticket: {Model.TicketTitle}";
+    Layout = null;
 }
 
-body {
-    background-color: #eef2f5;
-}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"]</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css" />
+    <link rel="stylesheet" href="~/css/chat-room.css" asp-append-version="true" />
+    <style>
+        /* --- NEW FEATURE: Style for the role label --- */
+        .role-label {
+            display: inline-block;
+            margin-left: 8px;
+            font-size: 0.7em;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background-color: #e9ecef; /* A light grey color */
+            color: #495057; /* A darker grey for text */
+            vertical-align: middle;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-page-wrapper chat-wrapper" data-ticket-id="@Model.TicketId" data-current-user-id="@Model.CurrentUserId">
+        <!-- User List Panel -->
+        <aside class="user-list-panel">
+            <div class="panel-header">Conversations</div>
+            <div class="user-list" id="user-list">
+                <!-- Public Chat -->
+                <div class="user-list-item active" data-is-public="true" data-user-id="null">
+                    <div class="avatar" style="background-color: #6c757d;"><i class="fas fa-users"></i></div>
+                    <div class="user-info">
+                        <div class="user-name">Public Chat</div>
+                        <div class="user-role">All participants</div>
+                    </div>
+                </div>
 
-.chat-wrapper {
-    display: flex;
-    height: 90vh;
-    max-width: 1200px;
-    margin: 2vh auto;
-    background-color: var(--chat-bg);
-    border-radius: 12px;
-    box-shadow: 0 5px 25px rgba(0, 0, 0, 0.1);
-    font-family: var(--font-family);
-    overflow: hidden;
-}
+                <!-- Private Chat Users -->
+                @foreach (var user in Model.AllUsers.Values.Where(u => u.UserId != Model.CurrentUserId))
+                {
+                    <div class="user-list-item" data-is-public="false" data-user-id="@user.UserId">
+                        <div class="avatar" style="background-color: @user.AvatarBackgroundColor;">@user.Initials</div>
+                        <div class="user-info">
+                            <div class="user-name">@user.Name</div>
+                            <div class="user-role">@user.Role</div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </aside>
 
-/* User List Panel (Left Side) */
-.user-list-panel {
-    width: 280px;
-    background-color: var(--panel-bg);
-    border-right: 1px solid var(--border-color);
-    display: flex;
-    flex-direction: column;
-}
+        <!-- Chat Panel -->
+        <main class="chat-main-panel">
+            <header class="chat-header">
+                <h5 id="chat-header-title">Public Chat</h5>
+            </header>
 
-.panel-header {
-    padding: 1rem;
-    font-weight: 600;
-    color: var(--text-color-dark);
-    border-bottom: 1px solid var(--border-color);
-}
+            <div class="message-list" id="message-list">
+                @foreach (var message in Model.InitialMessages)
+                {
+                    if (!Model.AllUsers.TryGetValue(message.SenderId, out var sender)) { continue; }
+                    var alignment = message.SenderId == Model.CurrentUserId ? "sent" : "received";
+                    var isPrivate = message.RecipientId.HasValue;
 
-#user-list .list-group-item {
-    cursor: pointer;
-    border: none;
-    background: transparent;
-    transition: background-color 0.2s;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
+                    <div class="message-row @alignment"
+                         data-is-private="@isPrivate.ToString().ToLower()"
+                         data-sender-id="@message.SenderId"
+                         data-recipient-id="@(message.RecipientId ?? 0)">
+                        <div class="avatar" style="background-color: @sender.AvatarBackgroundColor;">@sender.Initials</div>
+                        <div class="message-content">
+                            <div class="message-sender">
+                                @sender.Name
+                                <!-- --- NEW FEATURE: Display the sender's role --- -->
+                                <span class="role-label">@message.SenderRole</span>
+                                @(isPrivate ? "(private)" : "")
+                            </div>
+                            <div class="message-bubble">@message.Content</div>
+                        </div>
+                    </div>
+                }
+            </div>
 
-#user-list .list-group-item:hover {
-    background-color: #e2e6ea;
-}
+            <footer class="chat-input-area">
+                <form id="chat-form" style="display: contents;">
+                    <input type="text" id="message-input" class="form-control" placeholder="Message..." autocomplete="off" />
+                    <button type="submit" class="btn btn-primary" style="margin-left: 10px;">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
+            </footer>
+        </main>
+    </div>
 
-#user-list .list-group-item.active {
-    background-color: var(--primary-blue);
-    color: var(--text-color-light);
-    font-weight: bold;
-}
-#user-list .list-group-item.active i { color: var(--text-color-light) !important; }
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const currentUserId = @Html.Raw(Json.Serialize(Model.CurrentUserId));
+            const ticketId = @Html.Raw(Json.Serialize(Model.TicketId));
+            const allUsers = @Html.Raw(Json.Serialize(Model.AllUsers));
 
-.online-status-dot { font-size: 0.7rem; }
-.online-status-dot.online { color: #28a745; }
-.online-status-dot.offline { color: #6c757d; }
+            let currentRecipientId = null;
+            let isPublicChat = true;
 
-/* Main Chat Container */
-.chat-container {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-}
+            const userList = document.getElementById('user-list');
+            const chatHeaderTitle = document.getElementById('chat-header-title');
+            const messageList = document.getElementById('message-list');
+            const messageInput = document.getElementById('message-input');
+            const chatForm = document.getElementById('chat-form');
 
-.chat-header {
-    padding: 1rem;
-    border-bottom: 1px solid var(--border-color);
-}
+            const filterMessages = () => {
+                document.querySelectorAll('.message-row').forEach(row => {
+                    const isPrivate = row.dataset.isPrivate === 'true';
+                    const senderId = parseInt(row.dataset.senderId);
+                    const recipientId = parseInt(row.dataset.recipientId);
 
-.chat-header h5 { margin: 0; font-weight: 600; }
-.chat-header p { margin: 0; color: var(--text-muted-color); font-size: 0.9rem; }
+                    let show = false;
+                    if (isPublicChat) {
+                        show = !isPrivate;
+                    } else {
+                        show = isPrivate &&
+                            ((senderId === currentUserId && recipientId === currentRecipientId) ||
+                             (senderId === currentRecipientId && recipientId === currentUserId));
+                    }
+                    row.style.display = show ? 'flex' : 'none';
+                });
+                messageList.scrollTop = messageList.scrollHeight;
+            };
 
-/* Message List */
-.message-list {
-    flex-grow: 1;
-    overflow-y: auto;
-    padding: 1.5rem;
-}
+            userList.addEventListener('click', (e) => {
+                const target = e.target.closest('.user-list-item');
+                if (!target || target.classList.contains('active')) return;
 
-.date-separator { text-align: center; margin: 1.5rem 0; color: var(--text-muted-color); font-size: 0.8rem; }
-.message-row { display: flex; flex-direction: column; margin-bottom: 1rem; max-width: 75%; }
-.message-content { display: flex; flex-direction: column; }
-.message-sender { font-size: 0.8rem; font-weight: 600; margin-bottom: 4px; color: #555; }
-.message-bubble { padding: 0.8rem 1.2rem; border-radius: 18px; line-height: 1.5; font-size: 0.95rem; word-break: break-word; }
-.message-timestamp { font-size: 0.75rem; color: var(--text-muted-color); margin-top: 5px; }
+                userList.querySelector('.active').classList.remove('active');
+                target.classList.add('active');
 
-/* Message Alignment */
-.other-user { align-self: flex-start; }
-.other-user .message-sender { align-self: flex-start; }
-.other-user .message-timestamp { align-self: flex-start; }
-.other-user .message-bubble { background-color: var(--bubble-received); color: var(--text-color-dark); border-top-left-radius: 4px; }
+                isPublicChat = target.dataset.isPublic === 'true';
+                currentRecipientId = isPublicChat ? null : parseInt(target.dataset.userId);
 
-.current-user { align-self: flex-end; }
-.current-user .message-content { align-items: flex-end; }
-.current-user .message-timestamp { align-self: flex-end; }
-.current-user .message-bubble { background: var(--bubble-sent); color: var(--text-color-light); border-top-right-radius: 4px; }
+                chatHeaderTitle.textContent = isPublicChat
+                    ? "Public Chat"
+                    : `Private Chat with ${allUsers[currentRecipientId].name}`;
 
-/* Initially hide all messages; JS will show the correct ones */
-.message-row { display: none; }
+                filterMessages();
+            });
 
-/* Typing Indicator & Input Form */
-.typing-indicator { height: 20px; padding: 0 1.5rem; color: var(--text-muted-color); font-style: italic; font-size: 0.9rem; transition: opacity 0.3s; }
-.message-input-form { display: flex; align-items: center; padding: 0.75rem 1.5rem; border-top: 1px solid var(--border-color); background-color: var(--panel-bg); }
-#message-input { flex-grow: 1; border: 1px solid var(--border-color); background-color: var(--chat-bg); padding: 0.75rem; font-size: 1rem; border-radius: 20px; }
-#message-input:focus { outline: none; border-color: var(--primary-blue); box-shadow: 0 0 0 2px rgba(0,123,255,.25); }
-#send-button { border-radius: 50%; width: 48px; height: 48px; margin-left: 10px; flex-shrink: 0; }
+            chatForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const message = messageInput.value.trim();
+                if (!message || connection.state !== signalR.HubConnectionState.Connected) return;
+
+                try {
+                    if (isPublicChat) {
+                        await connection.invoke("SendPublicMessage", ticketId, message);
+                    } else {
+                        await connection.invoke("SendPrivateMessage", ticketId, currentRecipientId, message);
+                    }
+                    messageInput.value = '';
+                } catch (err) {
+                    console.error("Error sending message: ", err);
+                }
+            });
+
+            const connection = new signalR.HubConnectionBuilder()
+                .withUrl(`/chathub?userId=${currentUserId}`)
+                .withAutomaticReconnect()
+                .build();
+
+            connection.on("ReceivePublicMessage", (message) => {
+                location.reload(); // optional: reload or append dynamically
+            });
+
+            connection.on("ReceivePrivateMessage", (message) => {
+                if (!isPublicChat &&
+                    (message.senderId === currentRecipientId || message.recipientId === currentRecipientId)) {
+                    location.reload();
+                }
+            });
+
+            async function startConnection() {
+                try {
+                    await connection.start();
+                    await connection.invoke("JoinTicketRoom", ticketId.toString());
+                } catch (err) {
+                    console.error("SignalR connection error:", err);
+                    setTimeout(startConnection, 5000);
+                }
+            }
+
+            filterMessages();
+            startConnection();
+        });
+    </script>
+</body>
+</html>

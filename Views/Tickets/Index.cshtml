@@ -38,11 +38,14 @@
         color: white;
     }
 
+    /* --- ENHANCEMENT: Increased table row padding for better spacing --- */
+    table.dataTable td {
+        padding: 0.8rem;
+        vertical-align: middle;
+    }
+
     .dataTables_wrapper .dt-buttons .btn {
         margin-right: 5px;
-        border-radius: 20px;
-        font-size: 0.85rem;
-        padding: .3rem .8rem;
     }
 
     .dataTables_filter input {
@@ -65,14 +68,10 @@
             color: #aaa;
         }
 
-    table.dataTable a.view-details-btn {
-        font-size: 0.8rem;
-        padding: 0.2rem 0.6rem;
-    }
-
-    .dt-buttons.btn-group {
-        float: left;
-        margin-top: 1rem;
+    /* --- ENHANCEMENT: Style for required field indicators --- */
+    .required-label::after {
+        content: ' *';
+        color: #dc3545; /* Bootstrap's danger color */
     }
 </style>
 
@@ -89,11 +88,25 @@
         <p class="text-muted">Welcome back. We are ready to assist you with any inquiries.</p>
     </div>
 
-    <div class="row g-4">
+    <!-- ENHANCEMENT: Increased grid gap from g-4 to g-5 for more spacing -->
+    <div class="row g-5">
         <div class="col-lg-8">
             <div class="card h-100">
                 <div class="card-header">My Request History</div>
                 <div class="card-body p-4">
+                    <!-- ENHANCEMENT: Filter by Status Dropdown -->
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="statusFilter" class="form-label">Filter by Status:</label>
+                            <select id="statusFilter" class="form-select form-select-sm">
+                                <option value="">All</option>
+                                <option value="Open">Open</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Pending">Pending</option>
+                                <option value="Resolved">Resolved</option>
+                            </select>
+                        </div>
+                    </div>
                     <table id="ticketsDataTable" class="table table-hover" style="width:100%">
                         <thead>
                             <tr>
@@ -123,11 +136,15 @@
                                                 data-title="@ticket.Title" data-topic="@ticket.Topic"
                                                 data-priority="@ticket.Priority" data-priority-class="@GetPriorityBadgeClass(ticket.Priority)"
                                                 data-description="@ticket.Description" data-customer-name="@ticket.CustomerName"
-                                                data-account-number="@(ticket.AccountNumber ?? "N/A")">
+                                                data-account-number="@(ticket.AccountNumber ?? "N/A")"
+                                                aria-label="View details for ticket TCK-@ticket.Id.ToString("D6")">
                                             View
                                         </button>
+                                        <!-- ENHANCEMENT: Added tooltip and aria-label for accessibility -->
                                         <a asp-controller="Chat" asp-action="Room" asp-route-id="@ticket.Id"
-                                           class="btn btn-success btn-sm ms-1">
+                                           class="btn btn-success btn-sm ms-1"
+                                           data-bs-toggle="tooltip" title="Start Chat"
+                                           aria-label="Start chat for ticket TCK-@ticket.Id.ToString("D6")">
                                             <i class="fas fa-comments"></i> Chat
                                         </a>
                                     </td>
@@ -145,13 +162,17 @@
                 <div class="card-body p-4">
                     <form id="support-form" asp-controller="Tickets" asp-action="Create" method="post" novalidate>
                         @Html.AntiForgeryToken()
+                        <!-- ENHANCEMENT: Added validation summary for clear error feedback -->
+                        @Html.ValidationSummary(false, "", new { @class = "text-danger mb-3" })
+
+                        <!-- ENHANCEMENT: Added 'required-label' class for visual indicator -->
                         <div class="mb-3">
-                            <label asp-for="NewTicket.CustomerName" class="form-label fw-bold"></label>
+                            <label asp-for="NewTicket.CustomerName" class="form-label fw-bold required-label"></label>
                             <input asp-for="NewTicket.CustomerName" class="form-control" placeholder="e.g., John Doe" />
                             <span asp-validation-for="NewTicket.CustomerName" class="text-danger"></span>
                         </div>
                         <div class="mb-3">
-                            <label asp-for="NewTicket.Topic" class="form-label fw-bold"></label>
+                            <label asp-for="NewTicket.Topic" class="form-label fw-bold required-label"></label>
                             <select asp-for="NewTicket.Topic" asp-items="@Model.TopicOptions" class="form-select">
                                 <option value="">-- Please select a topic --</option>
                             </select>
@@ -163,7 +184,7 @@
                             <span asp-validation-for="NewTicket.AccountNumber" class="text-danger"></span>
                         </div>
                         <div class="mb-3">
-                            <label asp-for="NewTicket.Title" class="form-label fw-bold">Subject</label>
+                            <label asp-for="NewTicket.Title" class="form-label fw-bold required-label">Subject</label>
                             <input asp-for="NewTicket.Title" class="form-control" placeholder="e.g., Issue with recent transaction" />
                             <span asp-validation-for="NewTicket.Title" class="text-danger"></span>
                         </div>
@@ -176,7 +197,7 @@
                             </select>
                         </div>
                         <div class="mb-4">
-                            <label asp-for="NewTicket.Description" class="form-label fw-bold">Detailed Description</label>
+                            <label asp-for="NewTicket.Description" class="form-label fw-bold required-label">Detailed Description</label>
                             <textarea asp-for="NewTicket.Description" class="form-control" rows="5" placeholder="Please provide all relevant details..."></textarea>
                             <span asp-validation-for="NewTicket.Description" class="text-danger"></span>
                         </div>
@@ -226,7 +247,7 @@
     string GetStatusBadgeClass(string status) => status switch
     {
         "Open" => "badge bg-success",
-        "In Progress" => "badge bg-primary",
+        "In Progress" => "badge bg-info",
         "Pending" => "badge bg-warning text-dark",
         "Resolved" => "badge bg-secondary",
         _ => "badge bg-light text-dark"
@@ -244,12 +265,50 @@
 @section Scripts {
     <script>
         $(document).ready(function () {
+            // -- Start of Enhancements --
+
+            // ENHANCEMENT: Initialize tooltips for better UX
+            $('[data-bs-toggle="tooltip"]').tooltip();
+
+            // ENHANCEMENT: Re-organized DataTable for better alignment and consistent button styles
+            var table = $('#ticketsDataTable').DataTable({
+                "order": [[4, "desc"]],
+                "pageLength": 5,
+                "lengthMenu": [[5, 10, 25, -1], [5, 10, 25, "All"]],
+                "columnDefs": [{ "orderable": false, "targets": "no-sort" }],
+                // New DOM structure for better alignment of controls
+                dom: "<'row'<'col-sm-12 col-md-4'l><'col-sm-12 col-md-4'B><'col-sm-12 col-md-4'f>>" +
+                     "<'row'<'col-sm-12'tr>>" +
+                     "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+                // Consistent and accessible button styling
+                buttons: [
+                    { extend: 'csv', text: '<i class="fas fa-file-csv me-1"></i> CSV', className: 'btn btn-sm btn-outline-secondary', titleAttr: 'Export to CSV' },
+                    { extend: 'excel', text: '<i class="fas fa-file-excel me-1"></i> Excel', className: 'btn btn-sm btn-outline-secondary', titleAttr: 'Export to Excel' },
+                    { extend: 'pdf', text: '<i class="fas fa-file-pdf me-1"></i> PDF', className: 'btn btn-sm btn-outline-secondary', titleAttr: 'Export to PDF' },
+                    { extend: 'print', text: '<i class="fas fa-print me-1"></i> Print', className: 'btn btn-sm btn-outline-secondary', titleAttr: 'Print Table' }
+                ],
+                language: { search: "" }
+            });
+
+            // ENHANCEMENT: Logic for the status filter dropdown
+            $('#statusFilter').on('change', function () {
+                var status = $(this).val();
+                // Column 0 is the 'Status' column. Search it for the selected value.
+                // The '^' and '$' ensure an exact match (e.g., 'Open' doesn't match 'In Progress')
+                table.column(0).search(status ? '^' + status + '$' : '', true, false).draw();
+            });
+
+            // -- End of Enhancements --
+
+            $('.dataTables_filter input').attr("placeholder", "Search history...");
+
             $('#confirmSubmitModal').on('show.bs.modal', function () {
                 var topic = $('#NewTicket_Topic option:selected').text();
                 var subject = $('#NewTicket_Title').val();
                 $('#modalTopic').text(topic);
                 $('#modalSubject').text(subject);
             });
+
             $('#finalSubmitBtn').on('click', function () { $('#support-form').submit(); });
 
             $('#detailsModal').on('show.bs.modal', function (event) {
@@ -272,26 +331,6 @@
                 modal.find('#modalTicketPriority').text(priority).removeClass().addClass('badge ' + priorityClass);
                 modal.find('#modalTicketDescription').text(description);
             });
-
-            $('#ticketsDataTable').DataTable({
-                "order": [[4, "desc"]],
-                "pageLength": 10,
-                "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "All"]],
-                "columnDefs": [ { "orderable": false, "targets": "no-sort" } ],
-                dom:
-                    "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
-                    "<'row'<'col-sm-12'tr>>" +
-                    "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>" +
-                    "<'row'<'col-sm-12'B>>",
-                buttons: [
-                    { extend: 'csv', text: '<i class="fas fa-file-csv me-1"></i> Export CSV', className: 'btn btn-outline-secondary', titleAttr: 'Export to CSV' },
-                    { extend: 'excel', text: '<i class="fas fa-file-excel me-1"></i> Export Excel', className: 'btn btn-outline-success', titleAttr: 'Export to Excel' },
-                    { extend: 'pdf', text: '<i class="fas fa-file-pdf me-1"></i> Export PDF', className: 'btn btn-outline-danger', titleAttr: 'Export to PDF' },
-                    { extend: 'print', text: '<i class="fas fa-print me-1"></i> Print', className: 'btn btn-outline-info', titleAttr: 'Print Table' }
-                ],
-                language: { search: "" }
-            });
-            $('.dataTables_filter input').attr("placeholder", "Search history...");
         });
     </script>
 }
